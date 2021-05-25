@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: luwei vpc cft
+Parameters:
+  AZname:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: LwAZ
+
+Resources:
+  LwVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: 'false'
+      EnableDnsHostnames: 'false'
+      Tags:
+       - Key: Name
+         Value: luwei_vpc_cft
+
+  OutsideNet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.1.0/24
+      AvailabilityZone: !Ref AZname
+      Tags:
+        - Key: Name
+          Value: OutsideNet
+
+  InsideNet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.2.0/24
+      AvailabilityZone: !Ref AZname
+      Tags:
+        - Key: Name
+          Value: InsideNet

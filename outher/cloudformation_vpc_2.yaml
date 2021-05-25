@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: VPC_2
+Resources:
+  #创建一个VPC
+  LwVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: 'false'
+      EnableDnsHostnames: 'false'
+      Tags:
+        - Key: Name
+          Value: LwVPC
+
+ #创建一个互联网网关
+  CFTInternetGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: CFTInternetGW
+
+  #互联网网关关联VPC
+  AttachGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LwVPC
+      InternetGatewayId: !Ref CFTInternetGW
+
+  #创建一个Outside1 子网，开启Public因为要指默认路由，并且设置在当前region下的第一个可用区内
+  OutsideNet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.11.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: "" #返回数组
+      Tags:
+        - Key: Name
+          Value: OutsideNet1
+  #创建一个Outside2 子网，开启Public因为要指默认路由，并且设置在当前region下的第二个可用区内
+  OutsideNet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.12.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: "" #返回数组
+      Tags:
+        - Key: Name
+          Value: OutsideNet2
+  #创建一个InsideNet1 子网，开启Public因为要指默认路由，并且设置在当前region下的第一个可用区内
+  InsideNet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.21.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: "" #返回数组
+      Tags:
+        - Key: Name
+          Value: InsideNet1
+  #创建一个InsideNet2 子网，开启Public因为要指默认路由，并且设置在当前region下的第二个可用区内
+  InsideNet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.22.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: "" #返回数组
+      Tags:
+        - Key: Name
+          Value: InsideNet1
+  #创建一个private1 子网，并且设置在当前region下的第一个可用区内
+  PrivateNet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.31.0/24
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: "" #返回数组
+      Tags:
+        - Key: Name
+          Value: PrivateNet1
+#创建一个private2 子网，并且设置在当前region下的第二个可用区内
+  PrivateNet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LwVPC
+      CidrBlock: 10.1.32.0/24
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: "" #返回数组
+      Tags:
+        - Key: Name
+          Value: PrivateNet2
+#申请创建一个EIP用于NAT1
+  NATEIP1:
+    Type: AWS::EC2::EIP
+
+#申请创建一个EIP用于NAT2
+  NATEIP2:
+    Type: AWS::EC2::EIP
+
+#创建一个nat1网关 关联EIP及out1子网
+  NATGW1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - NATEIP1
+          - AllocationId
+      SubnetId: !Ref OutsideNet1
+      Tags:
+        - Key: Name
+          Value: NATGW1
+#创建一个nat12网关 关联EIP及out2子网
+  NATGW2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - NATEIP2
+          - AllocationId
+      SubnetId: !Ref OutsideNet2
+      Tags:
+        - Key: Name
+          Value: NATGW2
+#创建out路由表关联vpc
+  OutsideRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LwVPC
+      Tags:
+        - Key: Name
+          Value: OutsideRouteTable
+
+  Inside1RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LwVPC
+      Tags:
+        - Key: Name
+          Value: Inside1_RouteTable
+
+  Inside2RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LwVPC
+      Tags:
+        - Key: Name
+          Value: Inside2_RouteTable
+#子网与路由表关联
+  Outside1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref OutsideNet1
+      RouteTableId: !Ref OutsideRouteTable
+
+  Outside2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref OutsideNet2
+      RouteTableId: !Ref OutsideRouteTable
+
+  Inside1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref InsideNet1
+      RouteTableId: !Ref Inside1RouteTable
+
+  Inside2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref InsideNet2
+      RouteTableId: !Ref Inside2RouteTable
+#配置0.0.0.0/0 下一条互联网网关
+  OutsideDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref OutsideRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref CFTInternetGW
+#配置0.0.0.0/0 下一条NATGW
+  Inside1DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref Inside1RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId : !Ref NATGW1
+
+  Inside2DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref Inside2RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId : !Ref NATGW2
+
+#将VPC导出用于后续使用
+Outputs:
+  AZ1:
+    Description: AvailabilityZone of InsideNet1 Zone
+    Value: !GetAtt InsideNet1.AvailabilityZone
+
+  AZ2:
+    Description: AvailabilityZone of InsideNet2 Zone
+    Value: !GetAtt InsideNet2.AvailabilityZone
+
+  VPCID:
+    Description: The ID of the VPC
+    Value: !Ref LwVPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"
+
+  OutsideNet1:
+    Description: The ID of the OutsideNet1
+    Value: !Ref OutsideNet1
+    Export:
+      Name: !Sub "${AWS::StackName}-OutsideNet1-ID"
+
+  OutsideNet2:
+    Description: The ID of the OutsideNet2
+    Value: !Ref OutsideNet2
+    Export:
+      Name: !Sub "${AWS::StackName}-OutsideNet2-ID"
+
+  InsideNet1:
+    Description: The ID of the InsideNet1
+    Value: !Ref InsideNet1
+    Export:
+      Name: !Sub "${AWS::StackName}-InsideNet1-ID"
+
+  InsideNet2:
+    Description: The ID of the InsideNet2
+    Value: !Ref InsideNet2
+    Export:
+      Name: !Sub "${AWS::StackName}-InsideNet2-ID"
